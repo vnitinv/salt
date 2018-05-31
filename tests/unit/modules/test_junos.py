@@ -1751,9 +1751,9 @@ class Test_Junos_Module(TestCase, LoaderModuleMockMixin, XMLEqualityMixin):
         ret_exp = {'out': False, 'hostname': '1.1.1.1',
                    'tablename': 'ModuleTable',
                    'message': 'Connection lost with Device(1.1.1.1)' }
-        with patch('jnpr.junos.factory.FactoryLoader.load') as mock_load, \
-                patch('jnpr.junos.device.Device') as mock_device:
-            mock_load.side_effect = ConnectClosedError(mock_device)
+        with patch('jnpr.junos.factory.FactoryLoader.load') as mock_load:
+            dev_obj = type('Device', (), {'connected': True})
+            mock_load.side_effect = ConnectClosedError(dev_obj)
             ret = junos.get_table(table, file, path)
             self.assertEqual(ret['out'], ret_exp['out'])
             self.assertEqual(ret['tablename'], ret_exp['tablename'])
