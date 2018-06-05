@@ -1750,7 +1750,8 @@ class Test_Junos_Module(TestCase, LoaderModuleMockMixin, XMLEqualityMixin):
         path = '/path/to/file'
         ret_exp = {'out': False, 'hostname': '1.1.1.1',
                    'tablename': 'ModuleTable',
-                   'message': 'Connection lost with Device(1.1.1.1)' }
+                   'message': 'Got ConnectClosedError exception. '
+                              'Connection lost with Device(1.1.1.1)' }
         with patch('jnpr.junos.factory.FactoryLoader.load') as mock_load:
             dev_obj = type('Device', (), {'connected': True})
             mock_load.side_effect = ConnectClosedError(dev_obj)
