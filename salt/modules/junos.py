@@ -1386,7 +1386,7 @@ def get_table(table, file, path=None, target=None, key=None, key_items=None,
             ret['out'] = False
             return ret
         try:
-            with salt.utils.fopen(file_name) as fp:
+            with salt.utils.files.fopen(file_name) as fp:
                 ret['table'] = yaml.load(fp.read(),
                                          Loader=yamlordereddictloader.Loader)
                 globals().update(FactoryLoader().load(ret['table']))
