@@ -95,7 +95,7 @@ def init(opts):
                      'auto_probe',
                      'ssh_private_key_file',
                      'ssh_config',
-                     'normalize'
+                     'normalize',
                      ]
 
     if 'username' in opts['proxy'].keys():
@@ -113,11 +113,21 @@ def init(opts):
                   opts['proxy']['host'])
         thisproxy['initialized'] = False
         return
+    if 'timeout' in proxy_keys:
+        timeout = int(opts['proxy']['timeout'])
+        try:
+            thisproxy['conn'].timeout = timeout
+        except Exception as ex:
+            log.error('Not able to set timeout due to: %s' % ex)
+        else:
+            log.debug('RPC timeout set to %s seconds' % timeout)
     thisproxy['conn'].bind(cu=jnpr.junos.utils.config.Config)
     try:
         thisproxy['conn'].bind(sw=jnpr.junos.utils.sw.SW)
     except Exception as ex:
         log.error('Bind failed with SW class due to: %s' % ex)
+    __salt__['event.fire_master']({}, 'junos/proxy/{}/start'.format(
+        opts['proxy']['host']))
     thisproxy['initialized'] = True
 
 
@@ -155,6 +165,9 @@ def alive(opts):
     else:
         # other connection modes, like telnet
         thisproxy['conn'].connected = ping()
+    if not dev.connected:
+        __salt__['event.fire_master']({}, 'junos/proxy/{}/stop'.format(
+            opts['proxy']['host']))
     return dev.connected
 
 
@@ -192,6 +205,9 @@ def ping():
         try:
             dev.close()
         except (RpcError, ConnectError, TimeoutExpiredError):
+            return False
+    except AttributeError as ex:
+        if "'NoneType' object has no attribute 'timeout'" in ex:
             return False
 
 
