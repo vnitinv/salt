@@ -1725,7 +1725,7 @@ class Test_Junos_Module(TestCase, LoaderModuleMockMixin, XMLEqualityMixin):
                    'tablename': 'ModuleTable',
                    'message': 'Uncaught exception during YAML Load - please report: %s'
                               % message}
-        with patch('salt.utils.fopen', mock_open()) as mock_file:
+        with patch('salt.utils.files.fopen', mock_open()) as mock_file:
             mock_file.side_effect = IOError(message)
             ret = junos.get_table(table, file, path)
             self.assertEqual(ret, ret_exp)
