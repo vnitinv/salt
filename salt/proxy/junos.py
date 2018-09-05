@@ -156,9 +156,13 @@ def alive(opts):
     # rpc call is going on.
     if hasattr(dev._conn, '_session'):
         if dev._conn._session._transport.is_active():
-            # there is no on going rpc call.
-            if dev._conn._session._q.empty():
+            # there is no on going rpc call. buffer tell can be 1 as it stores
+            # remaining char after "]]>]]>" which can be a new line char
+            if dev._conn._session._buffer.tell() <= 1 and \
+                    dev._conn._session._q.empty():
                 thisproxy['conn'].connected = ping()
+            else:
+                log.debug('skipped ping() call as proxy already getting data')
         else:
             # ssh connection is lost
             dev.connected = False
@@ -204,6 +208,7 @@ def ping():
     except (RpcTimeoutError, ConnectClosedError):
         try:
             dev.close()
+            return False
         except (RpcError, ConnectError, TimeoutExpiredError):
             return False
     except AttributeError as ex:
