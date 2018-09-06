@@ -125,7 +125,7 @@ def init(opts):
     try:
         thisproxy['conn'].bind(sw=jnpr.junos.utils.sw.SW)
     except Exception as ex:
-        log.error('Bind failed with SW class due to: %s' % ex)
+        log.warning('Bind failed with SW class due to: %s' % ex)
     __salt__['event.fire_master']({}, 'junos/proxy/{}/start'.format(
         opts['proxy']['host']))
     thisproxy['initialized'] = True
