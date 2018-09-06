@@ -32,7 +32,7 @@ import salt.utils.files
 try:
     import dbus  # pylint: disable=wrong-import-order
     HAS_DBUS = True
-except ImportError:
+except:
     HAS_DBUS = False
 
 

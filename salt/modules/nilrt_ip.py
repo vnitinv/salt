@@ -23,7 +23,7 @@ except ImportError:
 try:
     import dbus
     HAS_DBUS = True
-except ImportError:
+except:
     HAS_DBUS = False
 
 log = logging.getLogger(__name__)
