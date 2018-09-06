@@ -12,7 +12,7 @@ HAS_DBUS = False
 try:
     import dbus
     HAS_DBUS = True
-except ImportError:
+except:
     pass
 
 # Import Salt libs
