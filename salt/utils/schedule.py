@@ -576,6 +576,10 @@ class Schedule(object):
                                         ret['schedule'], data['maxrunning']))
                                 return False
 
+        log.debug('schedule.handle_func: Setting the current thread name to'
+                  ' {}'.format(ret['jid']))
+        threading.currentThread().setName(ret['jid'])
+
         if multiprocessing_enabled and not salt.utils.platform.is_windows():
             # Reconfigure multiprocessing logging after daemonizing
             log_setup.setup_multiprocessing_logging()
