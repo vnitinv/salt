@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 '''
-Use `Varstack <https://github.com/conversis/varstack>` to provide tops data
+Use `Varstack <https://github.com/conversis/varstack>`_ to provide tops data
 
 .. |varstack| replace:: **varstack**
 
@@ -23,7 +23,7 @@ as documented. Then, add to your master's configuration:
 Varstack will then use /path/to/the/config/file/varstack.yaml (usually
 /etc/varstack.yaml) to determine which configuration
 data to return as adapter information. From there you can take a look at the
-`README <https://github.com/conversis/varstack/blob/master/README.md>` of
+`README <https://github.com/conversis/varstack/blob/master/README.md>`_ of
 varstack to learn how this file is evaluated. The ENC part will just return
 the 'states' dictionary for the node.
 
@@ -45,28 +45,20 @@ managed by salt as if given from a top.sls file.
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-# Import python libs
-import logging
-
 try:
-    HAS_VARSTACK = False
     import varstack
-    HAS_VARSTACK = True
 except ImportError:
-    pass
-
-# Set up logging
-log = logging.getLogger(__name__)
+    varstack = None
 
 # Define the module's virtual name
 __virtualname__ = 'varstack'
 
 
 def __virtual__():
-    if not HAS_VARSTACK:
-        log.error("Can't find varstack master_top")
-        return False
-    return __virtualname__
+    return (
+        varstack and __virtualname__ or False,
+        'The varstack module could not be loaded: varstack dependency is missing.'
+    )
 
 
 def top(**kwargs):
