@@ -46,6 +46,7 @@ try:
     import jnpr.junos.op as tables_dir
     from jnpr.junos.factory.factory_loader import FactoryLoader
     from jnpr.junos.factory.optable import OpTable
+    from jnpr.junos.factory.cfgtable import CfgTable
     from jnpr.junos.exception import ConnectClosedError
     import jxmlease
     import yamlordereddictloader
@@ -1404,7 +1405,7 @@ def get_table(table, file, path=None, target=None, key=None, key_items=None,
             ret['out'] = False
             return ret
         ret['reply'] = json.loads(data.to_json())
-        if data.__class__.__bases__[0] == OpTable:
+        if data.__class__.__bases__[0] in [OpTable, CfgTable]:
             # Sets key value if not present in YAML. To be used by returner
             if ret['table'][table].get('key') is None:
                 ret['table'][table]['key'] = data.ITEM_NAME_XPATH
