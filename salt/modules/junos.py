@@ -1428,8 +1428,9 @@ def get_table(table, file, path=None, target=None, key=None, key_items=None,
         ret['out'] = False
         return ret
     except Exception as err:
-        ret['message'] = 'Uncaught exception - please report: {0}'.format(
-            str(err))
+        msg = 'Uncaught exception - please report: {0}'.format(str(err))
+        ret['message'] = msg
+        log.error(msg)
         traceback.print_exc()
         ret['out'] = False
         return ret
