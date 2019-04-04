@@ -1412,6 +1412,8 @@ def get_table(table, file, path=None, target=None, key=None, key_items=None,
             # If key is provided from salt state file.
             if key is not None:
                 ret['table'][table]['key'] = data.KEY
+            if args is not None:
+                ret['table'][table]['args'] = data.GET_ARGS
         else:
             if target is not None:
                 ret['table'][table]['target'] = data.TARGET
