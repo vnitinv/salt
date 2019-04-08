@@ -22,6 +22,7 @@ import json
 import os
 import glob
 import yaml
+import copy
 
 try:
     from lxml import etree
@@ -1413,7 +1414,9 @@ def get_table(table, file, path=None, target=None, key=None, key_items=None,
             if key is not None:
                 ret['table'][table]['key'] = data.KEY
             if args is not None:
-                ret['table'][table]['args'] = data.GET_ARGS
+                table_args = copy.copy(data.GET_ARGS)
+                table_args.update(args)
+                ret['table'][table]['args'] = table_args
         else:
             if target is not None:
                 ret['table'][table]['target'] = data.TARGET
