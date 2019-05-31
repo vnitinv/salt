@@ -204,12 +204,14 @@ def rpc(cmd=None, dest=None, format='xml', **kwargs):
             del op['filter']
 
         op.update({'format': format})
+        # dev_timeout shouldnt bne passed in get_config options param
+        dev_timeout = op.pop('dev_timeout')
         try:
             reply = getattr(
                 conn.rpc,
                 cmd.replace('-',
                             '_'))(filter_reply,
-                                  options=op)
+                                  options=op, dev_timeout=dev_timeout)
         except Exception as exception:
             ret['message'] = 'RPC execution failed due to "{0}"'.format(
                 exception)
