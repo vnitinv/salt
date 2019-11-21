@@ -19,6 +19,10 @@ from __future__ import absolute_import, print_function, unicode_literals
 import logging
 import os
 from functools import wraps
+import traceback
+import json
+import glob
+import yaml
 
 try:
     from lxml import etree
@@ -43,6 +47,11 @@ try:
     import jnpr.junos.utils
     import jnpr.junos.cfg
     import jxmlease
+    from jnpr.junos.factory.optable import OpTable
+    import jnpr.junos.op as tables_dir
+    from jnpr.junos.factory.factory_loader import FactoryLoader
+    import yamlordereddictloader
+    from jnpr.junos.exception import ConnectClosedError
     # pylint: enable=W0611
     HAS_JUNOS = True
 except ImportError:
@@ -66,8 +75,9 @@ def __virtual__():
     if HAS_JUNOS and 'proxy' in __opts__:
         return __virtualname__
     else:
-        return (False, 'The junos module could not be loaded: '
-                       'junos-eznc or jxmlease or proxy could not be loaded.')
+        return (False, 'The junos or dependent module could not be loaded: '
+                       'junos-eznc or jxmlease or or yamlordereddictloader or '
+                       'proxy could not be loaded.')
 
 
 def timeoutDecorator(function):
@@ -273,11 +283,11 @@ def set_hostname(hostname=None, **kwargs):
     hostname
         The name to be set
 
-    dev_timeout : 30
-        The NETCONF RPC timeout (in seconds)
-
     comment
         Provide a comment to the commit
+
+    dev_timeout : 30
+        The NETCONF RPC timeout (in seconds)
 
     confirm
       Provide time in minutes for commit confirmation. If this option is
@@ -339,6 +349,7 @@ def set_hostname(hostname=None, **kwargs):
         ret[
             'message'] = 'Successfully loaded host-name but pre-commit check failed.'
         conn.cu.rollback()
+
     return ret
 
 
@@ -425,6 +436,7 @@ def commit(**kwargs):
         ret['out'] = False
         ret['message'] = 'Pre-commit check failed.'
         conn.cu.rollback()
+
     return ret
 
 
@@ -1097,6 +1109,7 @@ def install_os(path=None, **kwargs):
             ret['out'] = False
             return ret
         ret['message'] = 'Successfully installed and rebooted!'
+
     return ret
 
 
@@ -1144,6 +1157,7 @@ def file_copy(src=None, dest=None):
     except Exception as exception:
         ret['message'] = 'Could not copy file : "{0}"'.format(exception)
         ret['out'] = False
+
     return ret
 
 
@@ -1348,4 +1362,118 @@ def commit_check():
         ret['message'] = 'Commit check failed with {0}'.format(exception)
         ret['out'] = False
 
+    return ret
+
+
+def get_table(table, table_file, path=None, target=None, key=None, key_items=None,
+              filters=None, template_args=None):
+    '''
+    Retrieve data from a Junos device using Tables/Views
+
+    table (required)
+        Name of PyEZ Table
+
+    table_file (required)
+        YAML file that has the table specified in table parameter
+
+    path:
+        Path of location of the YAML file.
+        defaults to op directory in jnpr.junos.op
+
+    target:
+        if command need to run on FPC, can specify fpc target
+
+    key:
+        To overwrite key provided in YAML
+
+    key_items:
+        To select only given key items
+
+    filters:
+        To select only filter for the dictionary from columns
+
+    template_args:
+        key/value pair which should render Jinja template command
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt 'device_name' junos.get_table
+    '''
+    conn = __proxy__['junos.conn']()
+    ret = {}
+    ret['out'] = True
+    ret['hostname'] = conn._hostname
+    ret['tablename'] = table
+    get_kvargs = {}
+    if target is not None:
+        get_kvargs['target'] = target
+    if key is not None:
+        get_kvargs['key'] = key
+    if key_items is not None:
+        get_kvargs['key_items'] = key_items
+    if filters is not None:
+        get_kvargs['filters'] = filters
+    if template_args is not None and isinstance(template_args, dict):
+        get_kvargs['args'] = template_args
+    pyez_tables_path = os.path.dirname(os.path.abspath(tables_dir.__file__))
+    try:
+        if path is not None:
+            file_loc = glob.glob(os.path.join(path, '{}'.format(table_file)))
+        else:
+            file_loc = glob.glob(os.path.join(pyez_tables_path, '{}'.format(table_file)))
+        if len(file_loc) == 1:
+            file_name = file_loc[0]
+        else:
+            ret['message'] = 'Given table file {} cannot be located'.format(table_file)
+            ret['out'] = False
+            return ret
+        try:
+            with salt.utils.files.fopen(file_name) as fp:
+                ret['table'] = yaml.load(fp.read(),
+                                         Loader=yamlordereddictloader.Loader)
+                globals().update(FactoryLoader().load(ret['table']))
+        except IOError as err:
+            ret['message'] = 'Uncaught exception during YAML Load - please ' \
+                             'report: {0}'.format(six.text_type(err))
+            ret['out'] = False
+            return ret
+        try:
+            data = globals()[table](conn)
+            data.get(**get_kvargs)
+        except KeyError as err:
+            ret['message'] = 'Uncaught exception during get API call - please ' \
+                             'report: {0}'.format(six.text_type(err))
+            ret['out'] = False
+            return ret
+        except ConnectClosedError:
+            ret['message'] = 'Got ConnectClosedError exception. Connection lost ' \
+                             'with {}'.format(conn)
+            ret['out'] = False
+            return ret
+        ret['reply'] = json.loads(data.to_json())
+        if data.__class__.__bases__[0] == OpTable:
+            # Sets key value if not present in YAML. To be used by returner
+            if ret['table'][table].get('key') is None:
+                ret['table'][table]['key'] = data.ITEM_NAME_XPATH
+            # If key is provided from salt state file.
+            if key is not None:
+                ret['table'][table]['key'] = data.KEY
+        else:
+            if target is not None:
+                ret['table'][table]['target'] = data.TARGET
+            if key is not None:
+                ret['table'][table]['key'] = data.KEY
+            if key_items is not None:
+                ret['table'][table]['key_items'] = data.KEY_ITEMS
+            if template_args is not None:
+                ret['table'][table]['args'] = data.CMD_ARGS
+                ret['table'][table]['command'] = data.GET_CMD
+    except Exception as err:
+        ret['message'] = 'Uncaught exception - please report: {0}'.format(
+            str(err))
+        traceback.print_exc()
+        ret['out'] = False
+        return ret
     return ret
