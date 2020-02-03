@@ -1427,7 +1427,9 @@ def get_table(table, file, path=None, target=None, key=None, key_items=None,
             if key_items is not None:
                 ret['table'][table]['key_items'] = data.KEY_ITEMS
             if args is not None:
-                ret['table'][table]['args'] = data.CMD_ARGS
+                table_args = copy.copy(data.CMD_ARGS)
+                table_args.update(args)
+                ret['table'][table]['args'] = table_args
                 ret['table'][table]['command'] = data.GET_CMD
     except ConnectClosedError:
         ret['message'] = 'Got ConnectClosedError exception. Connection lost ' \
