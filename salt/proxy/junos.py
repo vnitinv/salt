@@ -11,6 +11,7 @@ via junos proxy, specify the host information in the pillar in '/srv/pillar/deta
       username: <username>
       port: 830
       password: <secret>
+      encoded_password: <encoded_secret>
 
 In '/srv/pillar/top.sls' map the device details with the proxy name.
 
@@ -53,6 +54,14 @@ try:
 except ImportError:
     HAS_JUNOS = False
 
+try:
+    HAS_JUNOSSECURE = True
+    from junossecure.junos_secure import junos_decode
+    from junossecure.junos_secure_exception import EncodeDecodeError
+except ImportError:
+    HAS_JUNOSSECURE = False
+
+
 __proxyenabled__ = ['junos']
 
 thisproxy = {}
@@ -82,6 +91,8 @@ def init(opts):
     log.debug('Opening connection to junos')
 
     args = {"host": opts['proxy']['host']}
+    # by default sax parser to be enabled in iAgent
+    args['use_filter'] = True
     optional_args = ['user',
                      'username',
                      'password',
@@ -94,12 +105,30 @@ def init(opts):
                      'auto_probe',
                      'ssh_private_key_file',
                      'ssh_config',
-                     'normalize'
+                     'normalize',
+                     'use_filter'
                      ]
 
     if 'username' in opts['proxy'].keys():
         opts['proxy']['user'] = opts['proxy'].pop('username')
     proxy_keys = opts['proxy'].keys()
+
+    # If encoded_passwd is found, prefer it over passwd or password
+    if 'encoded_password' in opts['proxy'].keys():
+        if HAS_JUNOSSECURE:
+            try:
+                decoded_password = junos_decode(opts['proxy'].pop('encoded_password'))
+                opts['proxy'].pop('passwd', None)
+                opts['proxy'].pop('password', None)
+                opts['proxy']['passwd'] = decoded_password
+            except EncodeDecodeError:
+                log.error('Unable to decode encoded_password, proceeding with passwd or password')
+    # Proceeding with plain text password options as junossecure package not found
+        else:
+            opts['proxy'].pop('encoded_password')
+            log.error('encoded_password option provided, but could not find junossecure option to'
+                      ' decode. Proceeding with passwd or password options if provided.')
+
     for arg in optional_args:
         if arg in proxy_keys:
             args[arg] = opts['proxy'][arg]
@@ -109,10 +138,10 @@ def init(opts):
         thisproxy['conn'].open()
     except (ProbeError, ConnectAuthError, ConnectRefusedError, ConnectTimeoutError,
             ConnectError) as ex:
-        log.error("{} : not able to initiate connection to the device".format(str(ex)))
+        log.error("{} : not able to initiate connection to the device: {}".format(
+            str(ex), opts['proxy']['host']))
         thisproxy['initialized'] = False
         return
-
     if 'timeout' in proxy_keys:
         timeout = int(opts['proxy']['timeout'])
         try:
@@ -131,6 +160,8 @@ def init(opts):
         thisproxy['conn'].bind(sw=jnpr.junos.utils.sw.SW)
     except Exception as ex:
         log.error('Bind failed with SW class due to: {}'.format(str(ex)))
+    __salt__['event.fire_master']({}, 'junos/proxy/{}/start'.format(
+            opts['proxy']['host']))
     thisproxy['initialized'] = True
 
 
@@ -146,7 +177,7 @@ def alive(opts):
     '''
     Validate and return the connection status with the remote device.
 
-    .. versionadded:: 2018.3.0
+    .. versionadded:: Oxygen
     '''
 
     dev = conn()

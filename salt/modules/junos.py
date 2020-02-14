@@ -23,6 +23,7 @@ import traceback
 import json
 import glob
 import yaml
+import copy
 
 try:
     from lxml import etree
@@ -48,6 +49,7 @@ try:
     import jnpr.junos.cfg
     import jxmlease
     from jnpr.junos.factory.optable import OpTable
+    from jnpr.junos.factory.cfgtable import CfgTable
     import jnpr.junos.op as tables_dir
     from jnpr.junos.factory.factory_loader import FactoryLoader
     import yamlordereddictloader
@@ -67,11 +69,11 @@ __proxyenabled__ = ['junos']
 
 
 def __virtual__():
-    '''
+    """
     We need the Junos adapter libraries for this
     module to work.  We also need a proxymodule entry in __opts__
     in the opts dictionary
-    '''
+    """
     if HAS_JUNOS and 'proxy' in __opts__:
         return __virtualname__
     else:
@@ -104,7 +106,7 @@ def timeoutDecorator(function):
 
 
 def facts_refresh():
-    '''
+    """
     Reload the facts dictionary from the device. Usually only needed if,
     the device configuration is changed by some other actor.
     This function will also refresh the facts stored in the salt grains.
@@ -114,7 +116,7 @@ def facts_refresh():
     .. code-block:: bash
 
         salt 'device_name' junos.facts_refresh
-    '''
+    """
     conn = __proxy__['junos.conn']()
     ret = {}
     ret['out'] = True
@@ -135,7 +137,7 @@ def facts_refresh():
 
 
 def facts():
-    '''
+    """
     Displays the facts gathered during the connection.
     These facts are also stored in Salt grains.
 
@@ -144,7 +146,7 @@ def facts():
     .. code-block:: bash
 
         salt 'device_name' junos.facts
-    '''
+    """
     ret = {}
     try:
         ret['facts'] = __proxy__['junos.get_serialized_facts']()
@@ -158,7 +160,7 @@ def facts():
 
 @timeoutDecorator
 def rpc(cmd=None, dest=None, **kwargs):
-    '''
+    """
     This function executes the RPC provided as arguments on the junos device.
     The returned data can be stored in a file.
 
@@ -192,7 +194,7 @@ def rpc(cmd=None, dest=None, **kwargs):
         salt 'device' junos.rpc get_config /var/log/config.txt format=text filter='<configuration><system/></configuration>'
         salt 'device' junos.rpc get-interface-information /home/user/interface.xml interface_name='lo0' terse=True
         salt 'device' junos.rpc get-chassis-inventory
-    '''
+    """
 
     conn = __proxy__['junos.conn']()
     ret = {}
@@ -277,7 +279,7 @@ def rpc(cmd=None, dest=None, **kwargs):
 
 @timeoutDecorator
 def set_hostname(hostname=None, **kwargs):
-    '''
+    """
     Set the device's hostname
 
     hostname
@@ -299,7 +301,7 @@ def set_hostname(hostname=None, **kwargs):
     .. code-block:: bash
 
         salt 'device_name' junos.set_hostname salt-device
-    '''
+    """
     conn = __proxy__['junos.conn']()
     ret = {}
     if hostname is None:
@@ -355,7 +357,7 @@ def set_hostname(hostname=None, **kwargs):
 
 @timeoutDecorator
 def commit(**kwargs):
-    '''
+    """
     To commit the changes loaded in the candidate configuration.
 
     dev_timeout : 30
@@ -393,7 +395,7 @@ def commit(**kwargs):
         salt 'device_name' junos.commit comment='Commiting via saltstack' detail=True
         salt 'device_name' junos.commit dev_timeout=60 confirm=10
         salt 'device_name' junos.commit sync=True dev_timeout=90
-    '''
+    """
 
     conn = __proxy__['junos.conn']()
     ret = {}
@@ -442,7 +444,7 @@ def commit(**kwargs):
 
 @timeoutDecorator
 def rollback(**kwargs):
-    '''
+    """
     Roll back the last committed configuration changes and commit
 
     id : 0
@@ -470,7 +472,7 @@ def rollback(**kwargs):
     .. code-block:: bash
 
         salt 'device_name' junos.rollback 10
-    '''
+    """
     id_ = kwargs.pop('id', 0)
 
     ret = {}
@@ -532,7 +534,7 @@ def rollback(**kwargs):
 
 
 def diff(**kwargs):
-    '''
+    """
     Returns the difference between the candidate and the current configuration
 
     id : 0
@@ -543,7 +545,7 @@ def diff(**kwargs):
     .. code-block:: bash
 
         salt 'device_name' junos.diff 3
-    '''
+    """
     kwargs = salt.utils.args.clean_kwargs(**kwargs)
     id_ = kwargs.pop('id', 0)
     if kwargs:
@@ -564,7 +566,7 @@ def diff(**kwargs):
 
 @timeoutDecorator
 def ping(dest_ip=None, **kwargs):
-    '''
+    """
     Send a ping RPC to a device
 
     dest_ip
@@ -595,7 +597,7 @@ def ping(dest_ip=None, **kwargs):
 
         salt 'device_name' junos.ping '8.8.8.8' count=5
         salt 'device_name' junos.ping '8.8.8.8' ttl=1 rapid=True
-    '''
+    """
     conn = __proxy__['junos.conn']()
     ret = {}
 
@@ -627,7 +629,7 @@ def ping(dest_ip=None, **kwargs):
 
 @timeoutDecorator
 def cli(command=None, **kwargs):
-    '''
+    """
     Executes the CLI commands and returns the output in specified format. \
     (default is text) The output can also be stored in a file.
 
@@ -652,7 +654,7 @@ def cli(command=None, **kwargs):
         salt 'device_name' junos.cli 'show system commit'
         salt 'device_name' junos.cli 'show version' dev_timeout=40
         salt 'device_name' junos.cli 'show system alarms' format=xml dest=/home/user/cli_output.txt
-    '''
+    """
     conn = __proxy__['junos.conn']()
 
     format_ = kwargs.pop('format', 'text')
@@ -695,7 +697,7 @@ def cli(command=None, **kwargs):
 
 
 def shutdown(**kwargs):
-    '''
+    """
     Shut down (power off) or reboot a device running Junos OS. This includes
     all Routing Engines in a Virtual Chassis or a dual Routing Engine system.
 
@@ -726,7 +728,7 @@ def shutdown(**kwargs):
         salt 'device_name' junos.shutdown reboot=True
         salt 'device_name' junos.shutdown shutdown=True in_min=10
         salt 'device_name' junos.shutdown shutdown=True
-    '''
+    """
     conn = __proxy__['junos.conn']()
     ret = {}
     sw = SW(conn)
@@ -771,7 +773,7 @@ def shutdown(**kwargs):
 
 @timeoutDecorator
 def install_config(path=None, **kwargs):
-    '''
+    """
     Installs the given configuration file into the candidate configuration.
     Commits the changes if the commit checks or throws an error.
 
@@ -842,7 +844,7 @@ def install_config(path=None, **kwargs):
         salt 'device_name' junos.install_config 'salt://templates/replace_config.conf' replace=True comment='Committed via SaltStack'
         salt 'device_name' junos.install_config 'salt://my_new_configuration.conf' dev_timeout=300 diffs_file='/salt/confs/old_config.conf' overwrite=True
         salt 'device_name' junos.install_config 'salt://syslog_template.conf' template_vars='{"syslog_host": "10.180.222.7"}'
-    '''
+    """
     conn = __proxy__['junos.conn']()
     ret = {}
     ret['out'] = True
@@ -977,7 +979,7 @@ def install_config(path=None, **kwargs):
 
 
 def zeroize():
-    '''
+    """
     Resets the device to default factory settings
 
     CLI Example:
@@ -985,7 +987,7 @@ def zeroize():
     .. code-block:: bash
 
         salt 'device_name' junos.zeroize
-    '''
+    """
     conn = __proxy__['junos.conn']()
     ret = {}
     ret['out'] = True
@@ -1001,7 +1003,7 @@ def zeroize():
 
 @timeoutDecorator
 def install_os(path=None, **kwargs):
-    '''
+    """
     Installs the given image on the device. After the installation is complete\
      the device is rebooted,
     if reboot=True is given as a keyworded argument.
@@ -1052,7 +1054,7 @@ def install_os(path=None, **kwargs):
 
         salt 'device_name' junos.install_os 'salt://images/junos_image.tgz' reboot=True
         salt 'device_name' junos.install_os 'salt://junos_16_1.tgz' dev_timeout=300
-    '''
+    """
     conn = __proxy__['junos.conn']()
     ret = {}
     ret['out'] = True
@@ -1114,7 +1116,7 @@ def install_os(path=None, **kwargs):
 
 
 def file_copy(src=None, dest=None):
-    '''
+    """
     Copies the file from the local device to the junos device
 
     src
@@ -1128,7 +1130,7 @@ def file_copy(src=None, dest=None):
     .. code-block:: bash
 
         salt 'device_name' junos.file_copy /home/m2/info.txt info_copy.txt
-    '''
+    """
     conn = __proxy__['junos.conn']()
     ret = {}
     ret['out'] = True
@@ -1162,7 +1164,7 @@ def file_copy(src=None, dest=None):
 
 
 def lock():
-    '''
+    """
     Attempts an exclusive lock on the candidate configuration. This
     is a non-blocking call.
 
@@ -1177,7 +1179,7 @@ def lock():
     .. code-block:: bash
 
         salt 'device_name' junos.lock
-    '''
+    """
     conn = __proxy__['junos.conn']()
     ret = {}
     ret['out'] = True
@@ -1192,7 +1194,7 @@ def lock():
 
 
 def unlock():
-    '''
+    """
     Unlocks the candidate configuration.
 
     CLI Example:
@@ -1200,7 +1202,7 @@ def unlock():
     .. code-block:: bash
 
         salt 'device_name' junos.unlock
-    '''
+    """
     conn = __proxy__['junos.conn']()
     ret = {}
     ret['out'] = True
@@ -1216,7 +1218,7 @@ def unlock():
 
 
 def load(path=None, **kwargs):
-    '''
+    """
     Loads the configuration from the file provided onto the device.
 
     path (required)
@@ -1267,7 +1269,7 @@ def load(path=None, **kwargs):
         salt 'device_name' junos.load 'salt://my_new_configuration.conf' overwrite=True
 
         salt 'device_name' junos.load 'salt://syslog_template.conf' template_vars='{"syslog_host": "10.180.222.7"}'
-    '''
+    """
     conn = __proxy__['junos.conn']()
     ret = {}
     ret['out'] = True
@@ -1343,7 +1345,7 @@ def load(path=None, **kwargs):
 
 
 def commit_check():
-    '''
+    """
     Perform a commit check on the configuration
 
     CLI Example:
@@ -1351,7 +1353,7 @@ def commit_check():
     .. code-block:: bash
 
         salt 'device_name' junos.commit_check
-    '''
+    """
     conn = __proxy__['junos.conn']()
     ret = {}
     ret['out'] = True
@@ -1367,7 +1369,7 @@ def commit_check():
 
 def get_table(table, table_file, path=None, target=None, key=None, key_items=None,
               filters=None, template_args=None):
-    '''
+    """
     Retrieve data from a Junos device using Tables/Views
 
     table (required)
@@ -1400,7 +1402,7 @@ def get_table(table, table_file, path=None, target=None, key=None, key_items=Non
     .. code-block:: bash
 
         salt 'device_name' junos.get_table
-    '''
+    """
     conn = __proxy__['junos.conn']()
     ret = {}
     ret['out'] = True
@@ -1453,13 +1455,18 @@ def get_table(table, table_file, path=None, target=None, key=None, key_items=Non
             ret['out'] = False
             return ret
         ret['reply'] = json.loads(data.to_json())
-        if data.__class__.__bases__[0] == OpTable:
+        if data.__class__.__bases__[0] in [OpTable, CfgTable]:
             # Sets key value if not present in YAML. To be used by returner
             if ret['table'][table].get('key') is None:
                 ret['table'][table]['key'] = data.ITEM_NAME_XPATH
             # If key is provided from salt state file.
             if key is not None:
                 ret['table'][table]['key'] = data.KEY
+            if template_args is not None:
+                ret['table'][table]['args'] = data.GET_ARGS
+                table_args = copy.copy(data.GET_ARGS)
+                table_args.update(template_args)
+                ret['table'][table]['args'] = table_args
         else:
             if target is not None:
                 ret['table'][table]['target'] = data.TARGET
