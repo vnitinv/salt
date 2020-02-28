@@ -1370,7 +1370,7 @@ def commit_check():
 def get_table(table, table_file, path=None, target=None, key=None, key_items=None,
               filters=None, template_args=None):
     """
-    Retrieve data from a Junos device using Tables/Views
+    Retrieve data from a Junos and other vendors device using Tables/Views
 
     table (required)
         Name of PyEZ Table
@@ -1477,9 +1477,6 @@ def get_table(table, table_file, path=None, target=None, key=None, key_items=Non
             if template_args is not None:
                 ret['table'][table]['args'] = data.CMD_ARGS
                 ret['table'][table]['command'] = data.GET_CMD
-            if ret['table'][table].get('key') is None and \
-                data.USE_TEXTFSM is not None:
-                ret['table'][table]['key'] = data.KEY
     except Exception as err:
         ret['message'] = 'Uncaught exception - please report: {0}'.format(
             str(err))
@@ -1487,3 +1484,4 @@ def get_table(table, table_file, path=None, target=None, key=None, key_items=Non
         ret['out'] = False
         return ret
     return ret
+
